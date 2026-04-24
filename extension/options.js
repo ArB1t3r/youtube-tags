@@ -81,11 +81,36 @@ function setupSubscriptionsTab() {
 
   document.getElementById('sync-btn').addEventListener('click', async () => {
     const btn = document.getElementById('sync-btn');
-    btn.textContent = '↻ Syncing…';
-    await sendBg({ type: 'SYNC' });
-    await loadState();
-    renderAll();
-    btn.textContent = '↻ Sync Channels';
+    const before = (state.channels || []).length;
+    btn.textContent = '↻ Opening…';
+    btn.disabled = true;
+
+    // Open YouTube channels page — content script will auto-scroll & detect
+    chrome.tabs.create({ url: 'https://www.youtube.com/feed/channels', active: true });
+
+    // Poll for new channels
+    let stableRounds = 0;
+    let lastCount = before;
+    const poll = setInterval(async () => {
+      await loadState();
+      const now = (state.channels || []).length;
+      btn.textContent = `↻ Detecting… (${now})`;
+      if (now === lastCount) {
+        stableRounds++;
+        if (stableRounds >= 5) {
+          clearInterval(poll);
+          btn.disabled = false;
+          const added = now - before;
+          btn.textContent = '↻ Sync Channels';
+          renderAll();
+          if (added > 0) alert(`Done! ${added} new channel(s) detected.`);
+          else alert('Done! No new channels found.');
+        }
+      } else {
+        stableRounds = 0;
+        lastCount = now;
+      }
+    }, 2000);
   });
 
   document.getElementById('suggest-all-btn').addEventListener('click', runSuggestAll);
