@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Tags — Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="nav">
+      <div class="nav-logo">▶ YT Tags</div>
+      <nav>
+        <button class="nav-btn active" data-tab="subscriptions">Subscriptions</button>
+        <button class="nav-btn" data-tab="tags">Tags</button>
+        <button class="nav-btn" data-tab="settings">Settings</button>
+      </nav>
+    </aside>
+
+    <main id="content">
+
+      <!-- ======================================================== SUBSCRIPTIONS -->
+      <section id="tab-subscriptions" class="tab active">
+        <div class="tab-header">
+          <h1>Subscriptions</h1>
+          <div class="header-actions">
+            <input type="search" id="ch-search" placeholder="Search channels…">
+            <button id="suggest-all-btn" class="btn btn-ai">✨ Suggest All Unsorted</button>
+            <button id="sync-btn" class="btn btn-ghost">↻ Sync</button>
+          </div>
+        </div>
+
+        <div id="ch-filters">
+          <button class="filter-pill active" data-filter="all">All <span id="all-count-badge" class="count-badge"></span></button>
+          <button class="filter-pill unsorted-pill" data-filter="unsorted">
+            Not Sorted <span id="unsorted-count-badge" class="count-badge"></span>
+          </button>
+          <button class="filter-pill skipped-pill" data-filter="skipped">
+            Skipped <span id="skipped-count-badge" class="count-badge"></span>
+          </button>
+          <div id="tag-filter-pills"></div>
+        </div>
+
+        <div id="channel-list"><span class="muted">Loading…</span></div>
+      </section>
+
+      <!-- ======================================================== TAGS -->
+      <section id="tab-tags" class="tab">
+        <div class="tab-header">
+          <h1>Tags</h1>
+          <button id="new-tag-btn" class="btn btn-primary">+ New Tag</button>
+        </div>
+
+        <div id="new-tag-form" class="card form-card hidden">
+          <input type="text" id="new-tag-name" placeholder="Tag name" maxlength="40">
+          <div class="color-picker-row">
+            <span class="color-picker-label">Color</span>
+            <div id="color-swatches" class="color-swatches"></div>
+            <input type="color" id="new-tag-color" value="#3ea6ff" title="Custom color">
+          </div>
+          <div class="form-actions">
+            <button id="save-tag-btn" class="btn btn-primary">Create</button>
+            <button id="cancel-tag-btn" class="btn btn-ghost">Cancel</button>
+          </div>
+        </div>
+
+        <div id="tag-list-full"><span class="muted">No tags yet.</span></div>
+      </section>
+
+      <!-- ======================================================== SETTINGS -->
+      <section id="tab-settings" class="tab">
+        <div class="tab-header"><h1>Settings</h1></div>
+
+        <div class="settings-grid">
+
+          <!-- AI -->
+          <div class="card">
+            <h2>AI Tag Suggestions</h2>
+            <p class="hint">Used to suggest which of your existing tags fit a channel. Your API key stays on your device.</p>
+            <label>Model
+              <select id="ai-model">
+                <optgroup label="── OpenAI ──">
+                  <option value="openai:gpt-5.4">GPT-5.4 (frontier, most capable)</option>
+                  <option value="openai:gpt-5.4-mini" selected>GPT-5.4 Mini (fast)</option>
+                  <option value="openai:gpt-5.4-nano">GPT-5.4 Nano (cheapest)</option>
+                  <option value="openai:gpt-4.1">GPT-4.1</option>
+                  <option value="openai:gpt-4.1-mini">GPT-4.1 Mini</option>
+                  <option value="openai:gpt-4.1-nano">GPT-4.1 Nano</option>
+                  <option value="openai:o4-mini">o4-mini (fast reasoning)</option>
+                  <option value="openai:o3">o3 (advanced reasoning)</option>
+                </optgroup>
+                <optgroup label="── Anthropic ──">
+                  <option value="anthropic:claude-opus-4-6">Claude Opus 4.6 (most powerful)</option>
+                  <option value="anthropic:claude-sonnet-4-6">Claude Sonnet 4.6 (balanced)</option>
+                  <option value="anthropic:claude-haiku-4-5-20251001">Claude Haiku 4.5 (fast)</option>
+                </optgroup>
+              </select>
+            </label>
+            <label>API Key
+              <input type="password" id="ai-key" placeholder="sk-… or sk-ant-…">
+            </label>
+            <div class="form-actions">
+              <button id="save-ai-btn" class="btn btn-primary">Save</button>
+              <span id="ai-status" class="status-text"></span>
+            </div>
+          </div>
+
+          <!-- Watch Stats -->
+          <div class="card">
+            <h2>Watch Stats</h2>
+            <p class="hint">Controls how "Most Watched" sorting ranks channels in the sidebar.</p>
+            <label>Time Period
+              <select id="watch-period">
+                <option value="0">All time</option>
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 2 weeks</option>
+                <option value="30">Last month</option>
+                <option value="90">Last 3 months</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button id="save-watch-period-btn" class="btn btn-primary">Save</button>
+              <span id="watch-period-status" class="status-text"></span>
+            </div>
+            <div class="danger-zone">
+              <button id="reset-watch-btn" class="btn btn-danger">Reset All Watch Counts</button>
+              <p class="hint">This will permanently clear all watch history and counts. This cannot be undone.</p>
+            </div>
+          </div>
+
+          <!-- Supabase -->
+          <div class="card">
+            <h2>Supabase Sync <span class="badge-optional">optional</span></h2>
+            <p class="hint">
+              Syncs your tags and channel data to the cloud so it persists across browser installs.
+              Run <code>supabase/migrations/001_initial.sql</code> in your Supabase SQL editor first.
+            </p>
+            <label>Project URL
+              <input type="url" id="sb-url" placeholder="https://xxxx.supabase.co">
+            </label>
+            <label>Anon Key
+              <input type="text" id="sb-key" placeholder="eyJhbGci…">
+            </label>
+            <div class="form-actions">
+              <button id="save-supabase-btn" class="btn btn-primary">Connect</button>
+              <span id="sb-status" class="status-text"></span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Tag assignment modal (single channel) -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Assign Tags</h2>
+        <button id="modal-close">✕</button>
+      </div>
+      <div id="modal-tag-checkboxes"></div>
+      <div id="modal-ai-suggestions" class="hidden">
+        <div class="ai-label">✨ AI Suggestions</div>
+        <div id="suggestion-pills"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-ai-btn" class="btn btn-ai">✨ Suggest Tags</button>
+        <button id="modal-save-btn" class="btn btn-primary">Save</button>
+        <button id="modal-skip-btn" class="btn btn-ghost">Mark Sorted (no tags)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch suggest overlay -->
+  <div id="batch-overlay" class="hidden">
+    <div id="batch-panel">
+      <div class="batch-header">
+        <h2>✨ AI Batch Suggestions</h2>
+        <button id="batch-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+
+      <div id="batch-progress-wrap">
+        <div class="batch-progress-bar"><div id="batch-progress-fill"></div></div>
+        <div id="batch-progress-text" class="muted">Preparing…</div>
+      </div>
+
+      <div id="batch-results"></div>
+
+      <div id="batch-actions" class="hidden">
+        <button id="batch-accept-all" class="btn btn-primary">Accept All</button>
+        <button id="batch-next" class="btn btn-ai">Next Batch</button>
+        <button id="batch-done" class="btn btn-ghost">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

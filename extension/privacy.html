@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Tags — Privacy Policy</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #e0e0e0; font-family: Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.7; }
+    .container { max-width: 680px; margin: 0 auto; padding: 48px 24px 64px; }
+    h1 { font-size: 28px; font-weight: 700; color: #f1f1f1; margin-bottom: 8px; }
+    .updated { color: #888; font-size: 13px; margin-bottom: 32px; }
+    h2 { font-size: 18px; font-weight: 600; color: #f1f1f1; margin: 28px 0 10px; }
+    p { margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; }
+    strong { color: #f1f1f1; }
+    a { color: #3ea6ff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: April 24, 2026</p>
+
+    <p><strong>YouTube Tags</strong> is a browser extension that helps you organize YouTube subscriptions with custom tags. Your privacy is important to us.</p>
+
+    <h2>Data We Collect</h2>
+    <p>YouTube Tags does <strong>not</strong> collect, transmit, or sell any personal data to third parties. All data stays on your device by default.</p>
+    <p>The extension stores the following data locally in your browser using the Chrome Storage API:</p>
+    <ul>
+      <li>YouTube channel names, handles, and thumbnails detected from pages you visit on youtube.com</li>
+      <li>Tags you create and their assignments to channels</li>
+      <li>Watch counts and viewing history (video IDs only, used for sidebar sorting)</li>
+      <li>Your UI preferences (filter states, sidebar mode, content filter toggles)</li>
+    </ul>
+
+    <h2>Optional Third-Party Services</h2>
+    <p>The following integrations are <strong>entirely optional</strong> and only activated when you explicitly configure them in Settings:</p>
+    <ul>
+      <li><strong>AI Tag Suggestions (OpenAI / Anthropic)</strong> — If you provide an API key, channel names and your tag list are sent to the selected AI provider to generate tag suggestions. Your API key is stored locally and never shared. Refer to <a href="https://openai.com/privacy" target="_blank">OpenAI's</a> or <a href="https://www.anthropic.com/privacy" target="_blank">Anthropic's</a> privacy policies for how they handle API requests.</li>
+      <li><strong>Supabase Sync</strong> — If you configure Supabase credentials, your tags and channel data are synced to your own Supabase project for cross-browser persistence. You control the database — we have no access to it.</li>
+    </ul>
+
+    <h2>Permissions</h2>
+    <ul>
+      <li><strong>Host permission (youtube.com)</strong> — Required to read channel information from YouTube pages and inject the tag UI.</li>
+      <li><strong>Storage</strong> — Required to save your tags, channels, and preferences locally.</li>
+      <li><strong>Tabs</strong> — Required to open the options and welcome pages.</li>
+      <li><strong>Alarms</strong> — Required for periodic Supabase sync (if configured).</li>
+    </ul>
+
+    <h2>Data Deletion</h2>
+    <p>You can delete all extension data at any time by:</p>
+    <ul>
+      <li>Uninstalling the extension (removes all local data)</li>
+      <li>Clearing site data for the extension in Chrome settings</li>
+      <li>Using the "Reset All Watch Counts" button in Settings to clear watch history</li>
+    </ul>
+
+    <h2>Changes to This Policy</h2>
+    <p>We may update this privacy policy from time to time. Changes will be reflected on this page with an updated date.</p>
+
+    <h2>Contact</h2>
+    <p>If you have questions about this privacy policy, please open an issue on our <a href="https://github.com/ArB1t3r/youtube-tags" target="_blank">GitHub repository</a>.</p>
+  </div>
+</body>
+</html>

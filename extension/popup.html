@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Tags</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <span class="logo">▶ YT Tags</span>
+    <a href="#" id="open-options" title="Open full settings">⚙</a>
+  </header>
+
+  <!-- Unsorted banner -->
+  <div id="unsorted-banner" class="hidden">
+    <span id="unsorted-count"></span> unsorted channels →
+    <a href="#" id="go-unsorted">Review in options</a>
+  </div>
+
+  <!-- Tag filters -->
+  <section>
+    <div class="section-label">
+      Feed filters
+      <button id="clear-filters" class="text-btn">Clear all</button>
+    </div>
+    <div id="tag-list">
+      <span class="muted">Loading…</span>
+    </div>
+  </section>
+
+  <!-- Sidebar mode -->
+  <section>
+    <div class="section-label">Sidebar order</div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="default">Default</button>
+      <button class="mode-btn" data-mode="watched">📊 Watched</button>
+      <button class="mode-btn" data-mode="new">🆕 New First</button>
+    </div>
+  </section>
+
+  <!-- Content filters -->
+  <section>
+    <div class="section-label">Content filters</div>
+    <div class="toggle-row">
+      <label class="toggle-label">
+        <span>Hide Shorts</span>
+        <button class="toggle-switch" id="toggle-shorts" data-key="hideShorts"></button>
+      </label>
+      <label class="toggle-label">
+        <span>Hide Livestreams</span>
+        <button class="toggle-switch" id="toggle-live" data-key="hideLive"></button>
+      </label>
+    </div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
