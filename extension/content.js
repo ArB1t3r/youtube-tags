@@ -26,10 +26,14 @@ let state = {
 // Boot
 // ---------------------------------------------------------------------------
 async function boot() {
-  await loadState();
-  interceptLogoClicks();
-  handleRoute();
-  setupStorageListener();
+  try {
+    await loadState();
+    interceptLogoClicks();
+    handleRoute();
+    setupStorageListener();
+  } catch {
+    // Extension context invalidated (e.g. after reload) — ignore silently
+  }
 }
 
 // Intercept YouTube logo clicks — go to subscriptions directly, no flash
@@ -52,27 +56,30 @@ function interceptLogoClicks() {
 
 function loadState() {
   return new Promise(resolve => {
-    chrome.storage.local.get(['tags', 'channels', 'channelStats', 'uiState', 'watchPeriodDays'], d => {
-      state.tags         = d.tags         || [];
-      state.channels     = d.channels     || [];
-      state.channelStats = d.channelStats || {};
-      state.watchPeriodDays = d.watchPeriodDays || 0;
-      state.uiState = {
-        activeTagFilters: [], showUnsorted: false,
-        sidebarMode: 'default', hideShorts: true, hideLive: true, colCount: 4,
-        ...(d.uiState || {})
-      };
-      // Load time-filtered watch counts if period is set
-      if (state.watchPeriodDays > 0) {
-        sendBg({ type: 'GET_WATCH_COUNTS', periodDays: state.watchPeriodDays }).then(res => {
-          state.filteredWatchCounts = res?.counts || null;
+    try {
+      chrome.storage.local.get(['tags', 'channels', 'channelStats', 'uiState', 'watchPeriodDays'], d => {
+        if (chrome.runtime.lastError) { resolve(); return; }
+        state.tags         = d.tags         || [];
+        state.channels     = d.channels     || [];
+        state.channelStats = d.channelStats || {};
+        state.watchPeriodDays = d.watchPeriodDays || 0;
+        state.uiState = {
+          activeTagFilters: [], showUnsorted: false,
+          sidebarMode: 'default', hideShorts: true, hideLive: true, colCount: 4,
+          ...(d.uiState || {})
+        };
+        // Load time-filtered watch counts if period is set
+        if (state.watchPeriodDays > 0) {
+          sendBg({ type: 'GET_WATCH_COUNTS', periodDays: state.watchPeriodDays }).then(res => {
+            state.filteredWatchCounts = res?.counts || null;
+            resolve();
+          });
+        } else {
+          state.filteredWatchCounts = null;
           resolve();
-        });
-      } else {
-        state.filteredWatchCounts = null;
-        resolve();
-      }
-    });
+        }
+      });
+    } catch { resolve(); }
   });
 }
 
