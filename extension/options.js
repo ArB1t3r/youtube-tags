@@ -85,7 +85,7 @@ function setupSubscriptionsTab() {
     await sendBg({ type: 'SYNC' });
     await loadState();
     renderAll();
-    btn.textContent = '↻ Sync';
+    btn.textContent = '↻ Sync Channels';
   });
 
   document.getElementById('suggest-all-btn').addEventListener('click', runSuggestAll);

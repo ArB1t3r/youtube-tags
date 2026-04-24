@@ -31,6 +31,7 @@ async function boot() {
     interceptLogoClicks();
     handleRoute();
     setupStorageListener();
+    setupSubscribeDetection();
   } catch {
     // Extension context invalidated (e.g. after reload) — ignore silently
   }
@@ -954,6 +955,108 @@ function sendBg(msg) {
 
 function esc(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIBE DETECTION — prompt user to tag newly subscribed channels
+// ---------------------------------------------------------------------------
+function setupSubscribeDetection() {
+  // Don't run if user opted out
+  if (state.uiState.disableSubscribePrompt) return;
+
+  document.addEventListener('click', e => {
+    if (state.uiState.disableSubscribePrompt) return;
+
+    // YouTube subscribe buttons
+    const subBtn = e.target.closest('ytd-subscribe-button-renderer button, tp-yt-paper-button.ytd-subscribe-button-renderer, button.yt-spec-button-shape-next[aria-label*="Subscribe"]');
+    if (!subBtn) return;
+
+    // Only trigger for "Subscribe" (not already subscribed / unsubscribe)
+    const label = subBtn.getAttribute('aria-label') || subBtn.textContent || '';
+    if (label.toLowerCase().includes('unsubscribe') || label.toLowerCase().includes('subscribed')) return;
+
+    // Grab channel info from the current page
+    const link = document.querySelector(
+      'ytd-video-owner-renderer a[href*="/@"], ytd-video-owner-renderer a[href*="/channel/"], ytd-channel-name a[href*="/@"]'
+    );
+    if (!link) return;
+
+    const chInfo = parseChannelLink(link);
+    if (!chInfo || !chInfo.name) return;
+
+    // Wait a moment for YouTube to process the subscription
+    setTimeout(() => {
+      sendBg({ type: 'DETECT_CHANNELS', channels: [chInfo] }).then(() => {
+        // Reload state to get the newly added channel
+        loadState().then(() => {
+          const ch = resolveChannel(link.href, chInfo.name);
+          if (ch) showSubscribeTagPopup(ch);
+        });
+      });
+    }, 800);
+  }, true);
+}
+
+function showSubscribeTagPopup(channel) {
+  // Remove any existing popup
+  document.getElementById('yn-sub-popup')?.remove();
+
+  if (!state.tags.length) return;
+
+  const popup = document.createElement('div');
+  popup.id = 'yn-sub-popup';
+
+  const tagsHtml = state.tags.map(t => {
+    const checked = (channel.tagIds || []).includes(t.id);
+    return `<label class="yn-sub-tag">
+      <input type="checkbox" value="${t.id}"${checked ? ' checked' : ''}>
+      <span class="yn-sub-swatch" style="background:${t.color}"></span>
+      ${esc(t.name)}
+    </label>`;
+  }).join('');
+
+  popup.innerHTML = `
+    <div class="yn-sub-header">
+      <span class="yn-sub-title">Tag <strong>${esc(channel.name)}</strong></span>
+      <button class="yn-sub-close" id="yn-sub-close">&times;</button>
+    </div>
+    <div class="yn-sub-tags">${tagsHtml}</div>
+    <div class="yn-sub-footer">
+      <button class="yn-sub-save" id="yn-sub-save">Save</button>
+      <button class="yn-sub-skip" id="yn-sub-skip">Skip</button>
+      <label class="yn-sub-opt-out">
+        <input type="checkbox" id="yn-sub-disable">
+        Don't ask again
+      </label>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  // Close
+  const close = () => popup.remove();
+  popup.querySelector('#yn-sub-close').addEventListener('click', close);
+  popup.querySelector('#yn-sub-skip').addEventListener('click', close);
+
+  // Save
+  popup.querySelector('#yn-sub-save').addEventListener('click', async () => {
+    const checked = [...popup.querySelectorAll('.yn-sub-tags input:checked')].map(cb => cb.value);
+    if (checked.length) {
+      await sendBg({ type: 'ASSIGN_TAGS', channelId: channel.id, tagIds: checked });
+    }
+    close();
+  });
+
+  // Don't ask again
+  popup.querySelector('#yn-sub-disable').addEventListener('change', async (e) => {
+    if (e.target.checked) {
+      state.uiState = { ...state.uiState, disableSubscribePrompt: true };
+      await sendBg({ type: 'SET_UI_STATE', patch: { disableSubscribePrompt: true } });
+      close();
+    }
+  });
+
+  // Auto-dismiss after 15 seconds
+  setTimeout(() => { if (document.body.contains(popup)) close(); }, 15000);
 }
 
 boot();
