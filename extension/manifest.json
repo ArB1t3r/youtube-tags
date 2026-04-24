@@ -8,10 +8,9 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "tabs", "alarms"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://*.supabase.co/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*"
   ],
@@ -38,6 +37,6 @@
     "open_in_tab": true
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; img-src 'self' https://yt3.ggpht.com https://yt3.googleusercontent.com https://i.ytimg.com data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.openai.com https://api.anthropic.com https://*.supabase.co;"
+    "extension_pages": "default-src 'self'; img-src 'self' https://yt3.ggpht.com https://yt3.googleusercontent.com https://i.ytimg.com data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.openai.com https://api.anthropic.com;"
   }
 }

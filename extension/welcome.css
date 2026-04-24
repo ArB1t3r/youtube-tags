@@ -202,6 +202,24 @@ body {
 .method-icon { font-size: 32px; margin-bottom: 10px; }
 .method-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .method-card p { color: #aaa; font-size: 13px; line-height: 1.5; }
+
+.pref-card {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 10px;
+}
+.pref-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+.pref-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: #3ea6ff; }
+.pref-card .hint { margin-top: 6px; margin-bottom: 0; }
 .method-card p strong { color: #f1f1f1; }
 
 .tip {

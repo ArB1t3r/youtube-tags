@@ -102,6 +102,11 @@ async function saveTags() {
   }
 }
 
+// ── Step 4: Auto-redirect preference ──────────────────────────────────────────
+document.getElementById('auto-redirect-check').addEventListener('change', async (e) => {
+  await sendBg({ type: 'SET_UI_STATE', patch: { autoRedirect: e.target.checked } });
+});
+
 // ── Step 3: Channel detection polling ─────────────────────────────────────────
 document.getElementById('open-youtube-btn').addEventListener('click', () => {
   chrome.tabs.create({ url: 'https://www.youtube.com/feed/channels' });

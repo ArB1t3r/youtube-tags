@@ -40,6 +40,7 @@ async function boot() {
 // Intercept YouTube logo clicks — go to subscriptions directly, no flash
 function interceptLogoClicks() {
   document.addEventListener('click', e => {
+    if (state.uiState.autoRedirect === false) return;
     const link = e.target.closest('a#logo, a[href="/"], ytd-topbar-logo-renderer a');
     if (!link) return;
     const href = link.getAttribute('href');
@@ -49,10 +50,9 @@ function interceptLogoClicks() {
       e.stopImmediatePropagation();
       history.pushState(null, '', '/feed/subscriptions');
       window.dispatchEvent(new PopStateEvent('popstate'));
-      // Also trigger YouTube's SPA navigation
       window.location.href = '/feed/subscriptions';
     }
-  }, true); // capture phase to beat YouTube's handler
+  }, true);
 }
 
 function loadState() {
@@ -90,8 +90,7 @@ function loadState() {
 function handleRoute() {
   const path = location.pathname;
 
-  if (path === '/' || path === '') {
-    // Redirect to subscriptions (fallback for direct URL navigation / first load)
+  if ((path === '/' || path === '') && state.uiState.autoRedirect !== false) {
     location.replace('/feed/subscriptions');
     return;
   }

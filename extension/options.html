@@ -132,22 +132,25 @@
             </div>
           </div>
 
-          <!-- Supabase -->
+          <!-- General -->
           <div class="card">
-            <h2>Supabase Sync <span class="badge-optional">optional</span></h2>
-            <p class="hint">
-              Syncs your tags and channel data to the cloud so it persists across browser installs.
-              Run <code>supabase/migrations/001_initial.sql</code> in your Supabase SQL editor first.
-            </p>
-            <label>Project URL
-              <input type="url" id="sb-url" placeholder="https://xxxx.supabase.co">
+            <h2>General</h2>
+            <label class="toggle-label-inline">
+              <input type="checkbox" id="auto-redirect-toggle">
+              <span>Auto-redirect YouTube home to Subscriptions feed</span>
             </label>
-            <label>Anon Key
-              <input type="text" id="sb-key" placeholder="eyJhbGci…">
-            </label>
+            <p class="hint" style="margin-top:4px">When enabled, visiting youtube.com will redirect to your subscriptions page.</p>
+          </div>
+
+          <!-- Export / Import -->
+          <div class="card">
+            <h2>Export / Import</h2>
+            <p class="hint">Back up or restore your tags, channels, and settings as a JSON file.</p>
             <div class="form-actions">
-              <button id="save-supabase-btn" class="btn btn-primary">Connect</button>
-              <span id="sb-status" class="status-text"></span>
+              <button id="export-btn" class="btn btn-primary">Export Data</button>
+              <button id="import-btn" class="btn btn-ghost">Import Data</button>
+              <input type="file" id="import-file" accept=".json" style="display:none">
+              <span id="import-status" class="status-text"></span>
             </div>
           </div>
 

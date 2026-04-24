@@ -620,3 +620,13 @@ code {
   font-size: 12px;
   word-break: break-all;
 }
+
+.toggle-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #f1f1f1;
+}
+.toggle-label-inline input { width: 16px; height: 16px; cursor: pointer; accent-color: #3ea6ff; }

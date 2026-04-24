@@ -2,7 +2,17 @@
 
 'use strict';
 
-importScripts('lib/supabase.js', 'lib/ai.js');
+importScripts('lib/ai.js');
+
+// ---------------------------------------------------------------------------
+// Chrome storage helpers
+// ---------------------------------------------------------------------------
+function chromeGet(keys) {
+  return new Promise(r => chrome.storage.local.get(keys, r));
+}
+function chromeSet(data) {
+  return new Promise(r => chrome.storage.local.set(data, r));
+}
 
 // ---------------------------------------------------------------------------
 // Message router
@@ -14,9 +24,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 async function dispatch(msg) {
   switch (msg.type) {
-    case 'CONFIGURE_SUPABASE':    return configureSupabase(msg.url, msg.anonKey);
     case 'CONFIGURE_AI':          return configureAI(msg.provider, msg.model, msg.apiKey);
-    case 'SYNC':                  return syncAll();
     case 'GET_ALL_DATA':          return getAllData();
 
     case 'CREATE_TAG':            return createTag(msg.name, msg.color);
@@ -38,6 +46,8 @@ async function dispatch(msg) {
     case 'SUGGEST_TAGS_BATCH':    return suggestBatch();
 
     case 'SET_UI_STATE':          return setUIState(msg.patch);
+    case 'EXPORT_DATA':           return exportData();
+    case 'IMPORT_DATA':           return importData(msg.data);
     case 'OPEN_OPTIONS':
       chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
       return { ok: true };
@@ -46,78 +56,23 @@ async function dispatch(msg) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Supabase helpers
-// ---------------------------------------------------------------------------
-async function withDB(fn) {
-  try {
-    const db = await getSupabase();
-    return await fn(db);
-  } catch (err) {
-    if (!err.message.includes('not configured')) {
-      console.warn('[YT-Nav] Supabase:', err.message);
-    }
-    return null;
-  }
-}
-
-async function configureSupabase(url, anonKey) {
-  await chromeSet({ supabaseUrl: url, supabaseAnonKey: anonKey });
-  resetSupabaseClient();
-  await withDB(db => db.userId); // triggers init
-  await syncAll();
-  return { ok: true };
-}
-
-async function syncAll() {
-  return withDB(async db => {
-    const [tags, rawChannels, channelTagRows, statsRows] = await Promise.all([
-      db.select('tags', { order: 'created_at.asc' }),
-      db.select('channels', { order: 'created_at.asc' }),
-      db.select('channel_tags', { select: 'channel_id,tag_id' }),
-      db.select('channel_stats')
-    ]);
-
-    const tagsByChannel = {};
-    for (const row of (channelTagRows || [])) {
-      (tagsByChannel[row.channel_id] = tagsByChannel[row.channel_id] || []).push(row.tag_id);
-    }
-
-    const channels = (rawChannels || []).map(c => ({
-      ...c, tagIds: tagsByChannel[c.id] || []
-    }));
-
-    const channelStats = {};
-    for (const s of (statsRows || [])) channelStats[s.channel_id] = s;
-
-    await chromeSet({ tags: tags || [], channels, channelStats });
-    return { ok: true };
-  });
-}
-
 async function getAllData() {
-  return chromeGet(['tags', 'channels', 'channelStats', 'aiProvider', 'aiModel', 'supabaseUrl', 'uiState', 'watchPeriodDays']);
+  return chromeGet(['tags', 'channels', 'channelStats', 'aiProvider', 'aiModel', 'uiState', 'watchPeriodDays']);
 }
-
 
 // ---------------------------------------------------------------------------
 // Tag CRUD
 // ---------------------------------------------------------------------------
 async function createTag(name, color) {
   const { tags = [] } = await chromeGet(['tags']);
-  const tempId = 'tmp_' + Date.now();
-  await chromeSet({ tags: [...tags, { id: tempId, name, color, created_at: new Date().toISOString() }] });
-  await withDB(async db => {
-    await db.insert('tags', { name, color, user_id: db.userId });
-    await syncAll();
-  });
+  const id = 'tag_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  await chromeSet({ tags: [...tags, { id, name, color, created_at: new Date().toISOString() }] });
   return { ok: true };
 }
 
 async function updateTag(id, name, color) {
   const { tags = [] } = await chromeGet(['tags']);
   await chromeSet({ tags: tags.map(t => t.id === id ? { ...t, name, color } : t) });
-  await withDB(db => db.update('tags', { id }, { name, color }));
   return { ok: true };
 }
 
@@ -127,7 +82,6 @@ async function deleteTag(id) {
     tags: tags.filter(t => t.id !== id),
     channels: channels.map(c => ({ ...c, tagIds: (c.tagIds || []).filter(tid => tid !== id) }))
   });
-  await withDB(db => db.delete('tags', { id }));
   return { ok: true };
 }
 
@@ -158,7 +112,6 @@ async function detectChannels(incoming) {
     );
 
     if (idx >= 0) {
-      // Enrich existing channel without touching sorted / tagIds
       const prev = merged[idx];
       const updated = {
         ...prev,
@@ -173,7 +126,7 @@ async function detectChannels(incoming) {
       }
     } else {
       merged.push({
-        id:            'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        id:            'ch_' + Date.now() + '_' + Math.random().toString(36).slice(2),
         yt_channel_id: c.yt_channel_id || null,
         name:          c.name,
         handle:        c.handle || null,
@@ -191,24 +144,6 @@ async function detectChannels(incoming) {
     await chromeSet({ channels: merged });
   }
 
-  if (added) {
-    await withDB(async db => {
-      const newRows = merged
-        .filter(ch => ch.id?.startsWith('tmp_'))
-        .map(ch => ({
-          user_id:       db.userId,
-          yt_channel_id: ch.yt_channel_id,
-          name:          ch.name,
-          handle:        ch.handle,
-          thumbnail:     ch.thumbnail,
-          description:   ch.description,
-          sorted:        false
-        }));
-      if (newRows.length) await db.upsert('channels', newRows);
-      await syncAll();
-    });
-  }
-
   return { ok: true, added, enriched };
 }
 
@@ -219,27 +154,18 @@ async function assignTags(channelId, tagIds) {
       c.id === channelId ? { ...c, tagIds, sorted: tagIds.length > 0 } : c
     )
   });
-  await withDB(async db => {
-    await db.delete('channel_tags', { channel_id: channelId });
-    if (tagIds.length) {
-      await db.insert('channel_tags', tagIds.map(tag_id => ({ channel_id: channelId, tag_id })));
-    }
-    await db.update('channels', { id: channelId }, { sorted: tagIds.length > 0 });
-  });
   return { ok: true };
 }
 
 async function markSorted(channelId) {
   const { channels = [] } = await chromeGet(['channels']);
   await chromeSet({ channels: channels.map(c => c.id === channelId ? { ...c, sorted: true } : c) });
-  await withDB(db => db.update('channels', { id: channelId }, { sorted: true }));
   return { ok: true };
 }
 
 async function deleteChannel(channelId) {
   const { channels = [] } = await chromeGet(['channels']);
   await chromeSet({ channels: channels.filter(c => c.id !== channelId) });
-  await withDB(db => db.delete('channels', { id: channelId }));
   return { ok: true };
 }
 
@@ -254,7 +180,6 @@ async function resetChannels() {
 async function recordWatch(channel, videoId) {
   const { channels = [], channelStats = {}, watchLog = [] } = await chromeGet(['channels', 'channelStats', 'watchLog']);
 
-  // Deduplicate: skip if this video was already counted
   if (videoId && watchLog.some(e => e.videoId === videoId)) return { ok: true, duplicate: true };
 
   let ch = channels.find(c =>
@@ -273,7 +198,6 @@ async function recordWatch(channel, videoId) {
   const now = new Date().toISOString();
   const cur = channelStats[ch.id] || { watch_count: 0 };
 
-  // Append to watch log (keep last 5000 entries)
   const newLog = videoId
     ? [...watchLog, { videoId, channelId: ch.id, at: now }].slice(-5000)
     : watchLog;
@@ -286,27 +210,14 @@ async function recordWatch(channel, videoId) {
     }
   });
 
-  await withDB(async db => {
-    const existing = await db.select('channel_stats', { channel_id: `eq.${ch.id}` });
-    if (existing?.length) {
-      await db.update('channel_stats', { channel_id: ch.id }, {
-        watch_count: (existing[0].watch_count || 0) + 1, last_watched_at: now
-      });
-    } else {
-      await db.insert('channel_stats', { channel_id: ch.id, user_id: db.userId, watch_count: 1, last_watched_at: now });
-    }
-  });
-
   return { ok: true };
 }
 
 async function getWatchCounts(periodDays) {
   const { channelStats = {}, watchLog = [] } = await chromeGet(['channelStats', 'watchLog']);
   if (!periodDays || periodDays === 0) {
-    // All time — use channelStats directly
     return { counts: channelStats };
   }
-  // Time-filtered counts from watchLog
   const cutoff = new Date(Date.now() - periodDays * 86400000).toISOString();
   const counts = {};
   for (const entry of watchLog) {
@@ -319,10 +230,6 @@ async function getWatchCounts(periodDays) {
 
 async function resetWatchStats() {
   await chromeSet({ channelStats: {}, watchLog: [] });
-  await withDB(async db => {
-    // Truncate channel_stats table for this user
-    try { await db.delete('channel_stats', {}); } catch (_) {}
-  });
   return { ok: true };
 }
 
@@ -397,6 +304,25 @@ async function configureAI(provider, model, apiKey) {
 }
 
 // ---------------------------------------------------------------------------
+// Export / Import
+// ---------------------------------------------------------------------------
+async function exportData() {
+  const data = await chromeGet(['tags', 'channels', 'channelStats', 'watchLog', 'uiState', 'aiProvider', 'aiModel', 'watchPeriodDays']);
+  return { ok: true, data };
+}
+
+async function importData(data) {
+  if (!data || typeof data !== 'object') throw new Error('Invalid data');
+  const allowed = ['tags', 'channels', 'channelStats', 'watchLog', 'uiState', 'aiProvider', 'aiModel', 'watchPeriodDays'];
+  const toSet = {};
+  for (const key of allowed) {
+    if (data[key] !== undefined) toSet[key] = data[key];
+  }
+  await chromeSet(toSet);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // UI state
 // ---------------------------------------------------------------------------
 async function setUIState(patch) {
@@ -413,9 +339,3 @@ chrome.runtime.onInstalled.addListener(details => {
     chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
   }
 });
-
-// ---------------------------------------------------------------------------
-// Periodic Supabase sync
-// ---------------------------------------------------------------------------
-chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'sync') syncAll(); });
-chrome.alarms.create('sync', { periodInMinutes: 5 });

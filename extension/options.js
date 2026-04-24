@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let state = { tags: [], channels: [], channelStats: {}, aiProvider: 'openai', aiModel: null, supabaseUrl: '' };
+let state = { tags: [], channels: [], channelStats: {}, aiProvider: 'openai', aiModel: null };
 let activeFilter = 'all';
 let searchQuery  = '';
 let modalChannel = null;
@@ -36,7 +36,6 @@ async function loadState() {
     state.channelStats = data.channelStats || {};
     state.aiProvider   = data.aiProvider   || 'openai';
     state.aiModel      = data.aiModel      || null;
-    state.supabaseUrl  = data.supabaseUrl  || '';
   }
 }
 
@@ -541,33 +540,22 @@ function renderTagsFull() {
 // ---------------------------------------------------------------------------
 function setupSettingsTab() {
   // Pre-fill from storage
-  chrome.storage.local.get(['supabaseUrl', 'supabaseAnonKey', 'aiProvider', 'aiModel', 'aiApiKey', 'watchPeriodDays'], d => {
-    if (d.supabaseUrl)     document.getElementById('sb-url').value  = d.supabaseUrl;
-    if (d.supabaseAnonKey) document.getElementById('sb-key').value  = d.supabaseAnonKey;
-    if (d.aiApiKey)        document.getElementById('ai-key').value  = d.aiApiKey;
+  chrome.storage.local.get(['aiProvider', 'aiModel', 'aiApiKey', 'watchPeriodDays', 'uiState'], d => {
+    if (d.aiApiKey) document.getElementById('ai-key').value = d.aiApiKey;
 
-    // Set model selector
     if (d.aiProvider && d.aiModel) {
       const val = `${d.aiProvider}:${d.aiModel}`;
       const sel = document.getElementById('ai-model');
       if ([...sel.options].some(o => o.value === val)) sel.value = val;
     }
 
-    // Set watch period selector
     const periodSel = document.getElementById('watch-period');
     if (d.watchPeriodDays != null) periodSel.value = String(d.watchPeriodDays);
-  });
 
-  // Save Supabase
-  document.getElementById('save-supabase-btn').addEventListener('click', async () => {
-    const url  = document.getElementById('sb-url').value.trim();
-    const key  = document.getElementById('sb-key').value.trim();
-    const stat = document.getElementById('sb-status');
-    if (!url || !key) { stat.textContent = 'Both fields required.'; return; }
-    stat.textContent = 'Connecting…';
-    const res = await sendBg({ type: 'CONFIGURE_SUPABASE', url, anonKey: key });
-    stat.textContent = res?.ok ? '✓ Connected' : '✗ ' + (res?.error || 'Failed');
-    if (res?.ok) { await loadState(); renderAll(); }
+    // Auto-redirect toggle
+    const redirectToggle = document.getElementById('auto-redirect-toggle');
+    const ui = d.uiState || {};
+    redirectToggle.checked = ui.autoRedirect !== false; // default true
   });
 
   // Save AI
@@ -607,6 +595,49 @@ function setupSettingsTab() {
     if (!confirm('This will clear all detected channels and open the setup wizard. Your tags will be kept. Continue?')) return;
     await sendBg({ type: 'RESET_CHANNELS' });
     chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+  });
+
+  // Auto-redirect toggle
+  document.getElementById('auto-redirect-toggle').addEventListener('change', async (e) => {
+    await sendBg({ type: 'SET_UI_STATE', patch: { autoRedirect: e.target.checked } });
+  });
+
+  // Export
+  document.getElementById('export-btn').addEventListener('click', async () => {
+    const res = await sendBg({ type: 'EXPORT_DATA' });
+    if (!res?.data) return;
+    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `youtube-tags-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Import
+  const importFile = document.getElementById('import-file');
+  document.getElementById('import-btn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files[0];
+    if (!file) return;
+    const stat = document.getElementById('import-status');
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!confirm(`Import will overwrite current data (${data.tags?.length || 0} tags, ${data.channels?.length || 0} channels). Continue?`)) return;
+      const res = await sendBg({ type: 'IMPORT_DATA', data });
+      if (res?.ok) {
+        stat.textContent = '✓ Imported';
+        await loadState(); renderAll();
+      } else {
+        stat.textContent = '✗ ' + (res?.error || 'Failed');
+      }
+    } catch {
+      stat.textContent = '✗ Invalid JSON file';
+    }
+    setTimeout(() => { stat.textContent = ''; }, 3000);
+    importFile.value = '';
   });
 }
 
