@@ -1,5 +1,28 @@
 /* YouTube Tags — injected styles */
 
+/* ------------------------------------------------------------------ Feed tag filtering */
+/* Use visibility+collapse instead of display:none to avoid triggering YouTube's
+   infinite-scroll (display:none collapses the grid → page shortens → YouTube
+   loads more → observer fires → items hidden → infinite loop). */
+ytd-rich-item-renderer[data-yn-tag-hidden],
+ytd-rich-item-renderer[data-yn-hidden] {
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+}
+/* Keep the grid container tall enough so YouTube doesn't auto-load endlessly */
+ytd-rich-grid-renderer[data-yn-filtering] #contents {
+  min-height: 200vh;
+}
+
 /* ------------------------------------------------------------------ Filter bar */
 #yn-filter-bar {
   width: 100%;
@@ -278,16 +301,21 @@
   background: #282828;
   border: none;
   border-radius: 12px;
-  padding: 8px 0;
   min-width: 220px;
-  max-height: 320px;
-  overflow-y: auto;
+  max-height: 360px;
   z-index: 99999;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
 }
 .yn-wt-menu.hidden { display: none; }
+
+.yn-wt-menu-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
 
 .yn-wt-item {
   display: flex;
@@ -311,7 +339,12 @@
 .yn-wt-swatch { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
 .yn-wt-empty { color: #717171; font-size: 14px; font-family: Roboto, sans-serif; padding: 8px 16px; }
 
-.yn-wt-menu-footer { border-top: 1px solid #3d3d3d; padding: 8px; margin-top: 4px; }
+/* Save button pinned at bottom of dropdown */
+.yn-wt-menu-footer {
+  border-top: 1px solid #3d3d3d;
+  padding: 8px;
+  flex-shrink: 0;
+}
 .yn-wt-save {
   width: 100%;
   padding: 8px;

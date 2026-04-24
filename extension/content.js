@@ -103,6 +103,7 @@ function handleRoute() {
 // SUBSCRIPTION FEED
 // ---------------------------------------------------------------------------
 let feedObserver = null;
+let feedDebounce = null;
 
 function setupFeedPage() {
   document.getElementById('yn-filter-bar')?.remove();
@@ -118,15 +119,22 @@ function setupFeedPage() {
     // Re-check after metadata text loads asynchronously
     setTimeout(hideUnwantedSections, 800);
     setTimeout(hideUnwantedSections, 2000);
+    // Re-check filter after channel metadata lazy-loads
+    setTimeout(applyFeedFilter, 600);
+    setTimeout(applyFeedFilter, 1500);
 
     if (feedObserver) feedObserver.disconnect();
     feedObserver = new MutationObserver(() => {
-      hideUnwantedSections();
-      applyFeedFilter();
-      detectFeedChannels();
-      // Metadata text (e.g. "Streamed 1d ago") loads after the card element
-      setTimeout(hideUnwantedSections, 800);
-      setTimeout(hideUnwantedSections, 2000);
+      // Debounce to prevent rapid hide-load-hide cycles with YouTube's infinite scroll
+      clearTimeout(feedDebounce);
+      feedDebounce = setTimeout(() => {
+        hideUnwantedSections();
+        applyFeedFilter();
+        detectFeedChannels();
+        setTimeout(hideUnwantedSections, 800);
+        // Re-check filter for items whose channel metadata loaded late
+        setTimeout(applyFeedFilter, 600);
+      }, 300);
     });
     feedObserver.observe(contents, { childList: true, subtree: true });
   });
@@ -248,7 +256,6 @@ function hideUnwantedSections() {
     }
     if (isShort || isLive) {
       item.setAttribute('data-yn-hidden', '1');
-      item.style.setProperty('display', 'none', 'important');
     }
   });
 }
@@ -361,34 +368,33 @@ function applyFeedFilter() {
   const { activeTagFilters, showUnsorted } = state.uiState;
   const showAll = !activeTagFilters.length && !showUnsorted;
 
+  // Toggle a marker on the grid so CSS can apply grid-aware hiding
+  const grid = document.querySelector('ytd-rich-grid-renderer');
+  if (grid) grid.toggleAttribute('data-yn-filtering', !showAll);
+
   document.querySelectorAll('ytd-rich-item-renderer').forEach(item => {
     if (item.hasAttribute('data-yn-hidden')) return;
 
     if (showAll) {
       item.removeAttribute('data-yn-tag-hidden');
-      item.style.display = '';
       return;
     }
 
-    const ch = getChannelFromItem(item);
+    // If channel metadata hasn't loaded yet, skip — will be re-checked later
+    const link = item.querySelector('ytd-channel-name a, #channel-name a, a.yt-simple-endpoint[href*="/@"], a.yt-simple-endpoint[href*="/channel/"]');
+    if (!link) return;
+
+    const ch = resolveChannel(link.href, link.textContent.trim());
     let visible = false;
     if (showUnsorted) visible = !ch || !ch.sorted;
     else if (ch)       visible = activeTagFilters.some(tid => (ch.tagIds || []).includes(tid));
 
     if (visible) {
       item.removeAttribute('data-yn-tag-hidden');
-      item.style.display = '';
     } else {
       item.setAttribute('data-yn-tag-hidden', '1');
-      item.style.setProperty('display', 'none', 'important');
     }
   });
-}
-
-function getChannelFromItem(item) {
-  const link = item.querySelector('ytd-channel-name a, #channel-name a, a.yt-simple-endpoint[href*="/@"], a.yt-simple-endpoint[href*="/channel/"]');
-  if (!link) return null;
-  return resolveChannel(link.href, link.textContent.trim());
 }
 
 function detectFeedChannels() {
@@ -483,7 +489,7 @@ function renderWatchTags(channel) {
         Tags
       </button>
       <div class="yn-wt-menu hidden" id="yn-wt-menu">
-        ${menuHtml}
+        <div class="yn-wt-menu-items">${menuHtml}</div>
         ${channel ? `<div class="yn-wt-menu-footer"><button class="yn-wt-save" id="yn-wt-save">Save</button></div>` : ''}
       </div>
     </div>
@@ -510,7 +516,9 @@ function attachWatchTagEvents(bar, channel) {
       if (willShow) positionMenu();
     }
   }, true);
-  document.addEventListener('click', e => { if (!bar.contains(e.target)) menu?.classList.add('hidden'); });
+  document.addEventListener('click', e => {
+    if (!bar.contains(e.target) && !menu?.contains(e.target)) menu?.classList.add('hidden');
+  });
 
   bar.querySelector('#yn-wt-save')?.addEventListener('click', async () => {
     if (!channel) return;
@@ -771,6 +779,14 @@ function setupStorageListener() {
 
       // Re-render sidebar list if stats or mode changed
       if (changes.channelStats || changes.uiState) {
+        // Sync sidebar sort button active states when mode changes (e.g. from popup)
+        const ctrl = document.getElementById('yn-sort-controls');
+        if (ctrl) {
+          const mode = state.uiState.sidebarMode;
+          ctrl.querySelectorAll('.yn-sort-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.mode === mode)
+          );
+        }
         renderSidebarList();
       }
     }, 150);
@@ -781,9 +797,7 @@ function setupStorageListener() {
 // SPA navigation
 // ---------------------------------------------------------------------------
 document.addEventListener('yt-navigate-finish', () => {
-  sidebarScraped = [];
   document.getElementById('yn-watch-tags')?.remove();
-  document.getElementById('yn-sidebar-list')?.remove();
   loadState().then(handleRoute);
 });
 
