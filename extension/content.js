@@ -103,6 +103,10 @@ function handleRoute() {
     setupWatchPage();
   }
 
+  if (path === '/feed/channels') {
+    setupChannelsPage();
+  }
+
   setupSidebar();
 }
 
@@ -415,6 +419,83 @@ function detectFeedChannels() {
     sendBg({ type: 'DETECT_CHANNELS', channels: deduped });
     sendBg({ type: 'UPDATE_FEED_SEEN', channels: deduped });
   }
+}
+
+// ---------------------------------------------------------------------------
+// CHANNELS PAGE — /feed/channels — bulk detect all subscriptions
+// ---------------------------------------------------------------------------
+let channelsPageObserver = null;
+let channelsPageScrollTimer = null;
+
+function setupChannelsPage() {
+  waitFor('ytd-section-list-renderer, ytd-browse[page-subtype="channels"]', () => {
+    detectChannelsPage();
+    autoScrollChannelsPage();
+
+    // Observe for new channels loading as user/auto scrolls
+    const container = document.querySelector('ytd-section-list-renderer #contents')
+      || document.querySelector('ytd-browse[page-subtype="channels"]');
+    if (container) {
+      if (channelsPageObserver) channelsPageObserver.disconnect();
+      channelsPageObserver = new MutationObserver(() => detectChannelsPage());
+      channelsPageObserver.observe(container, { childList: true, subtree: true });
+    }
+  });
+}
+
+function detectChannelsPage() {
+  const found = [];
+  // YouTube uses various renderers on the channels page
+  const selectors = [
+    'ytd-channel-renderer a[href*="/@"], ytd-channel-renderer a[href*="/channel/"]',
+    'ytd-grid-channel-renderer a[href*="/@"], ytd-grid-channel-renderer a[href*="/channel/"]',
+    '#items a[href*="/@"], #items a[href*="/channel/"]',
+    'ytd-section-list-renderer a[href*="/@"], ytd-section-list-renderer a[href*="/channel/"]'
+  ];
+  const links = document.querySelectorAll(selectors.join(', '));
+  links.forEach(a => {
+    const ch = parseChannelLink(a);
+    if (ch && ch.name) found.push(ch);
+    // Also try to get thumbnail from nearby img
+    if (ch) {
+      const renderer = a.closest('ytd-channel-renderer, ytd-grid-channel-renderer');
+      const img = renderer?.querySelector('img#img, yt-img-shadow img');
+      if (img?.src) ch.thumbnail = img.src;
+    }
+  });
+  if (found.length) {
+    sendBg({ type: 'DETECT_CHANNELS', channels: uniqueChannels(found) });
+  }
+}
+
+function autoScrollChannelsPage() {
+  // Auto-scroll to load all channels, stop when no new content appears
+  let lastCount = 0;
+  let stableRounds = 0;
+
+  channelsPageScrollTimer = setInterval(() => {
+    const items = document.querySelectorAll(
+      'ytd-channel-renderer, ytd-grid-channel-renderer'
+    );
+    const currentCount = items.length;
+
+    if (currentCount === lastCount) {
+      stableRounds++;
+      if (stableRounds >= 3) {
+        // No new channels for 3 rounds — done
+        clearInterval(channelsPageScrollTimer);
+        channelsPageScrollTimer = null;
+        detectChannelsPage(); // final pass
+        return;
+      }
+    } else {
+      stableRounds = 0;
+      lastCount = currentCount;
+    }
+
+    // Scroll to bottom to trigger YouTube's lazy loading
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  }, 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -805,6 +886,9 @@ function setupStorageListener() {
 // ---------------------------------------------------------------------------
 document.addEventListener('yt-navigate-finish', () => {
   document.getElementById('yn-watch-tags')?.remove();
+  // Stop channels page auto-scroll if navigating away
+  if (channelsPageScrollTimer) { clearInterval(channelsPageScrollTimer); channelsPageScrollTimer = null; }
+  if (channelsPageObserver) { channelsPageObserver.disconnect(); channelsPageObserver = null; }
   loadState().then(handleRoute);
 });
 
