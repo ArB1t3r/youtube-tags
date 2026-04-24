@@ -604,13 +604,9 @@ function setupSettingsTab() {
   });
 
   document.getElementById('reset-channels-btn').addEventListener('click', async () => {
-    if (!confirm('This will clear ALL detected channels. Your tags will be kept. Continue?')) return;
-    const btn = document.getElementById('reset-channels-btn');
-    btn.textContent = 'Resetting…'; btn.disabled = true;
+    if (!confirm('This will clear all detected channels and open the setup wizard. Your tags will be kept. Continue?')) return;
     await sendBg({ type: 'RESET_CHANNELS' });
-    btn.disabled = false; btn.textContent = 'Reset All Channels';
-    await loadState(); renderAll();
-    alert('All channels cleared. Browse YouTube to re-detect them.');
+    chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
   });
 }
 
