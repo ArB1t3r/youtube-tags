@@ -28,6 +28,7 @@ async function dispatch(msg) {
     case 'DELETE_CHANNEL':        return deleteChannel(msg.channelId);
 
     case 'DETECT_CHANNELS':       return detectChannels(msg.channels);
+    case 'RESET_CHANNELS':        return resetChannels();
     case 'RECORD_WATCH':          return recordWatch(msg.channel, msg.videoId);
     case 'UPDATE_FEED_SEEN':      return updateFeedSeen(msg.channels);
 
@@ -239,6 +240,11 @@ async function deleteChannel(channelId) {
   const { channels = [] } = await chromeGet(['channels']);
   await chromeSet({ channels: channels.filter(c => c.id !== channelId) });
   await withDB(db => db.delete('channels', { id: channelId }));
+  return { ok: true };
+}
+
+async function resetChannels() {
+  await chromeSet({ channels: [], channelStats: {}, watchLog: [] });
   return { ok: true };
 }
 

@@ -577,6 +577,16 @@ function setupSettingsTab() {
     await loadState(); renderAll();
     alert('All watch counts have been reset.');
   });
+
+  document.getElementById('reset-channels-btn').addEventListener('click', async () => {
+    if (!confirm('This will clear ALL detected channels. Your tags will be kept. Continue?')) return;
+    const btn = document.getElementById('reset-channels-btn');
+    btn.textContent = 'Resetting…'; btn.disabled = true;
+    await sendBg({ type: 'RESET_CHANNELS' });
+    btn.disabled = false; btn.textContent = 'Reset All Channels';
+    await loadState(); renderAll();
+    alert('All channels cleared. Browse YouTube to re-detect them.');
+  });
 }
 
 // ---------------------------------------------------------------------------

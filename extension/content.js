@@ -445,23 +445,32 @@ function setupChannelsPage() {
 
 function detectChannelsPage() {
   const found = [];
-  // YouTube uses various renderers on the channels page
-  const selectors = [
-    'ytd-channel-renderer a[href*="/@"], ytd-channel-renderer a[href*="/channel/"]',
-    'ytd-grid-channel-renderer a[href*="/@"], ytd-grid-channel-renderer a[href*="/channel/"]',
-    '#items a[href*="/@"], #items a[href*="/channel/"]',
-    'ytd-section-list-renderer a[href*="/@"], ytd-section-list-renderer a[href*="/channel/"]'
-  ];
-  const links = document.querySelectorAll(selectors.join(', '));
-  links.forEach(a => {
-    const ch = parseChannelLink(a);
-    if (ch && ch.name) found.push(ch);
-    // Also try to get thumbnail from nearby img
-    if (ch) {
-      const renderer = a.closest('ytd-channel-renderer, ytd-grid-channel-renderer');
-      const img = renderer?.querySelector('img#img, yt-img-shadow img');
-      if (img?.src) ch.thumbnail = img.src;
-    }
+  // Iterate over each channel renderer once (not individual links)
+  document.querySelectorAll('ytd-channel-renderer, ytd-grid-channel-renderer').forEach(renderer => {
+    // Get the primary channel link (the one with the channel name text)
+    const link = renderer.querySelector('a#main-link[href*="/@"], a#main-link[href*="/channel/"]')
+      || renderer.querySelector('#channel-info a[href*="/@"], #channel-info a[href*="/channel/"]')
+      || renderer.querySelector('a[href*="/@"], a[href*="/channel/"]');
+    if (!link) return;
+
+    const href = link.href || '';
+    const idM = href.match(/\/channel\/(UC[\w-]+)/);
+    const hM  = href.match(/\/@([\w.-]+)/);
+
+    // Get channel name from the dedicated title element, not link textContent
+    const nameEl = renderer.querySelector('#channel-name #text, #channel-name yt-formatted-string, yt-formatted-string#text');
+    const name = nameEl?.textContent?.trim()
+      || renderer.querySelector('#channel-name')?.textContent?.trim()
+      || '';
+    if (!name) return;
+
+    const img = renderer.querySelector('yt-img-shadow img, img#img');
+    found.push({
+      yt_channel_id: idM?.[1] || null,
+      handle: hM ? '@' + hM[1] : null,
+      name,
+      thumbnail: img?.src || null
+    });
   });
   if (found.length) {
     sendBg({ type: 'DETECT_CHANNELS', channels: uniqueChannels(found) });
